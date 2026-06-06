@@ -14,7 +14,6 @@ resource "aws_lb_target_group" "tg" {
   vpc_id      = var.vpc_id
   target_type = "instance"
 
-  # Додаємо чіткі параметри перевірки, щоб пришвидшити процес для автотестів
   health_check {
     path                = "/"
     protocol            = "HTTP"
@@ -43,44 +42,47 @@ resource "aws_launch_template" "app" {
   instance_type = "t3.micro"
 
   network_interfaces {
-    delete_on_termination = true
-    security_groups       = [var.ssh_sg_id, var.private_http_sg_id]
+    delete_on_termination       = true
+    security_groups             = [var.ssh_sg_id, var.private_http_sg_id]
+    associate_public_ip_address = true
   }
 
   user_data = base64encode(<<-EOF
-              #!/bin/bash
-              exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
+#!/bin/bash
+exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
 
-              WEB_DIR="/var/www/html"
+# Ждём 15 секунд, чтобы система завершила внутренние фоновые обновления apt при старте
+sleep 15
 
-              # Всеїдний скрипт для встановлення Apache на будь-яку ОС
-              if command -v apt-get &> /dev/null; then
-                apt-get update -y
-                apt-get install -y apache2
-                systemctl start apache2
-                systemctl enable apache2
-              elif command -v yum &> /dev/null; then
-                yum update -y
-                yum install -y httpd
-                systemctl start httpd
-                systemctl enable httpd
-              fi
+# Принудительно устанавливаем apache2 и curl
+if command -v apt-get &> /dev/null; then
+  apt-get update -y
+  apt-get install -y apache2 curl
+  systemctl start apache2
+  systemctl enable apache2
+elif command -v yum &> /dev/null; then
+  yum update -y
+  yum install -y httpd curl
+  systemctl start httpd
+  systemctl enable httpd
+fi
 
-              mkdir -p $WEB_DIR
+WEB_DIR="/var/www/html"
+mkdir -p $$WEB_DIR
 
-              # Отримання метаданих через IMDSv2
-              TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-              COMPUTE_INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $${TOKEN}" -s http://169.254.169.254/latest/meta-data/instance-id)
-              COMPUTE_MACHINE_UUID=$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+# Запрос метаданных строго по ТЗ
+COMPUTE_MACHINE_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+COMPUTE_INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $$TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
 
-              # Шаблон сторінки точно під ТЗ
-              cat <<OUT > $WEB_DIR/index.html
-              <h1>Launch template ${var.launch_template_name}</h1>
-              <p>Instance type: t3.micro</p>
-              <p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>
-              <p>This message was generated on instance $COMPUTE_INSTANCE_ID with the following UUID $COMPUTE_MACHINE_UUID</p>
-              OUT
-              EOF
+# Формируем HTML страницу
+echo "<h1>Launch template ${var.launch_template_name}</h1>" > $$WEB_DIR/index.html
+echo "<p>Instance type: t3.micro</p>" >> $$WEB_DIR/index.html
+echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> $$WEB_DIR/index.html
+echo "<p>This message was generated on instance $$COMPUTE_INSTANCE_ID with the following UUID $$COMPUTE_MACHINE_UUID</p>" >> $$WEB_DIR/index.html
+
+systemctl restart apache2 || systemctl restart httpd
+EOF
   )
 
   tags = { Name = var.launch_template_name }
@@ -95,7 +97,15 @@ resource "aws_autoscaling_group" "asg" {
 
   launch_template {
     id      = aws_launch_template.app.id
-    version = "$Latest"
+    version = aws_launch_template.app.latest_version
+  }
+
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 50
+    }
+    triggers = ["tag"]
   }
 
   lifecycle {
