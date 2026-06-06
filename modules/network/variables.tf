@@ -1,0 +1,13 @@
+variable "vpc_name" { type = string }
+variable "vpc_cidr" { type = string }
+variable "subnet1_name" { type = string }
+variable "subnet1_cidr" { type = string }
+variable "az1" { type = string }
+variable "subnet2_name" { type = string }
+variable "subnet2_cidr" { type = string }
+variable "az2" { type = string }
+variable "subnet3_name" { type = string }
+variable "subnet3_cidr" { type = string }
+variable "az3" { type = string }
+variable "igw_name" { type = string }
+variable "rt_name" { type = string }

@@ -1,0 +1,10 @@
+variable "vpc_id" { type = string }
+variable "subnet_ids" { type = list(string) }
+variable "ssh_sg_id" { type = string }
+variable "ssh_sg_name" { type = string }
+variable "public_http_sg_id" { type = string }
+variable "private_http_sg_id" { type = string }
+variable "private_http_sg_name" { type = string }
+variable "launch_template_name" { type = string }
+variable "asg_name" { type = string }
+variable "load_balancer_name" { type = string }
