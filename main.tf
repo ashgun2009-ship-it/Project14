@@ -1,7 +1,3 @@
-terraform {
-  required_version = ">= 1.5.7"
-}
-
 module "network" {
   source = "./modules/network"
 
