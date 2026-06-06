@@ -78,11 +78,9 @@ mkdir -p $${WEB_DIR}
 
 COMPUTE_MACHINE_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
 
-TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" \
--H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+TOKEN=$$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 
-COMPUTE_INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $${TOKEN}" \
-http://169.254.169.254/latest/meta-data/instance-id)
+COMPUTE_INSTANCE_ID=$$(curl -s -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/instance-id)
 
 echo "<h1>Launch template ${var.launch_template_name}</h1>" > $${WEB_DIR}/index.html
 echo "<p>Instance type: t3.micro</p>" >> $${WEB_DIR}/index.html

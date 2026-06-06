@@ -1,7 +1,10 @@
 resource "aws_security_group" "ssh" {
   name   = var.ssh_sg_name
   vpc_id = var.vpc_id
-  tags   = { Name = var.ssh_sg_name }
+
+  tags = {
+    Name = var.ssh_sg_name
+  }
 
   ingress {
     from_port   = 22
@@ -21,13 +24,23 @@ resource "aws_security_group" "ssh" {
 resource "aws_security_group" "public_http" {
   name   = var.public_http_sg_name
   vpc_id = var.vpc_id
-  tags   = { Name = var.public_http_sg_name }
+
+  tags = {
+    Name = var.public_http_sg_name
+  }
 
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Повністю відкрито для балансувальника та робота Syndicate
+    cidr_blocks = var.allowed_ip_range
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -41,7 +54,10 @@ resource "aws_security_group" "public_http" {
 resource "aws_security_group" "private_http" {
   name   = var.private_http_sg_name
   vpc_id = var.vpc_id
-  tags   = { Name = var.private_http_sg_name }
+
+  tags = {
+    Name = var.private_http_sg_name
+  }
 
   ingress {
     from_port       = 80
