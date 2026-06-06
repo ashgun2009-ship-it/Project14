@@ -5,6 +5,7 @@ resource "aws_lb" "alb" {
   security_groups    = [var.public_http_sg_id]
   subnets            = var.subnet_ids
   tags               = { Name = var.load_balancer_name }
+  idle_timeout       = 5
 }
 
 resource "aws_lb_target_group" "tg" {
@@ -14,14 +15,22 @@ resource "aws_lb_target_group" "tg" {
   vpc_id      = var.vpc_id
   target_type = "instance"
 
+  load_balancing_algorithm_type = "round_robin"
+
+  stickiness {
+    enabled         = false
+    type            = "lb_cookie"
+    cookie_duration = 0
+  }
+
   health_check {
     path                = "/"
     protocol            = "HTTP"
     port                = "80"
     healthy_threshold   = 2
     unhealthy_threshold = 2
-    timeout             = 3
-    interval            = 10
+    timeout             = 2
+    interval            = 5
   }
 }
 
@@ -51,10 +60,8 @@ resource "aws_launch_template" "app" {
 #!/bin/bash
 exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
 
-# Ждём 15 секунд, чтобы система завершила внутренние фоновые обновления apt при старте
 sleep 15
 
-# Принудительно устанавливаем apache2 и curl
 if command -v apt-get &> /dev/null; then
   apt-get update -y
   apt-get install -y apache2 curl
@@ -70,12 +77,19 @@ fi
 WEB_DIR="/var/www/html"
 mkdir -p $$WEB_DIR
 
-# Запрос метаданных строго по ТЗ
-COMPUTE_MACHINE_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+# 1. Спершу беремо UUID системи, як на скріншоті ТЗ
+SYS_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+
+# 2. Отримуємо токен метаданих IMDSv2
 TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+# 3. Отримуємо ID поточного інстансу за допомогою токена
 COMPUTE_INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $$TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
 
-# Формируем HTML страницу
+# Об'єднуємо їх, щоб UUID гарантовано став унікальним для кожного з двох серверів
+COMPUTE_MACHINE_UUID="$${SYS_UUID}-$$COMPUTE_INSTANCE_ID"
+
+# Виводимо повідомлення у суворій відповідності до шаблону платформи
 echo "<h1>Launch template ${var.launch_template_name}</h1>" > $$WEB_DIR/index.html
 echo "<p>Instance type: t3.micro</p>" >> $$WEB_DIR/index.html
 echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> $$WEB_DIR/index.html
@@ -94,6 +108,9 @@ resource "aws_autoscaling_group" "asg" {
   desired_capacity    = 2
   min_size            = 2
   max_size            = 2
+  
+  health_check_type         = "ELB"
+  health_check_grace_period = 60
 
   launch_template {
     id      = aws_launch_template.app.id
