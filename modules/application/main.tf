@@ -13,6 +13,17 @@ resource "aws_lb_target_group" "tg" {
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "instance"
+
+  # Додаємо чіткі параметри перевірки, щоб пришвидшити процес для автотестів
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    port                = "80"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    interval            = 10
+  }
 }
 
 resource "aws_lb_listener" "http" {
@@ -28,27 +39,42 @@ resource "aws_lb_listener" "http" {
 
 resource "aws_launch_template" "app" {
   name          = var.launch_template_name
-  image_id      = "ami-03fd334507439f4d1" # Ubuntu 22.04 LTS в eu-west-1
+  image_id      = "ami-03fd334507439f4d1"
   instance_type = "t3.micro"
 
   network_interfaces {
     delete_on_termination = true
-    # Секуріті-групи тепер знаходяться всередині інтерфейсу
-    security_groups = [var.ssh_sg_id, var.private_http_sg_id]
+    security_groups       = [var.ssh_sg_id, var.private_http_sg_id]
   }
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              apt-get update -y
-              apt-get install -y apache2
-              systemctl start apache2
-              systemctl enable apache2
+              exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
 
-              COMPUTE_MACHINE_UUID=$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+              WEB_DIR="/var/www/html"
+
+              # Всеїдний скрипт для встановлення Apache на будь-яку ОС
+              if command -v apt-get &> /dev/null; then
+                apt-get update -y
+                apt-get install -y apache2
+                systemctl start apache2
+                systemctl enable apache2
+              elif command -v yum &> /dev/null; then
+                yum update -y
+                yum install -y httpd
+                systemctl start httpd
+                systemctl enable httpd
+              fi
+
+              mkdir -p $WEB_DIR
+
+              # Отримання метаданих через IMDSv2
               TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-              COMPUTE_INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/instance-id)
+              COMPUTE_INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $${TOKEN}" -s http://169.254.169.254/latest/meta-data/instance-id)
+              COMPUTE_MACHINE_UUID=$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
 
-              cat <<OUT > /var/www/html/index.html
+              # Шаблон сторінки точно під ТЗ
+              cat <<OUT > $WEB_DIR/index.html
               <h1>Launch template ${var.launch_template_name}</h1>
               <p>Instance type: t3.micro</p>
               <p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>
