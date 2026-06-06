@@ -76,18 +76,18 @@ fi
 WEB_DIR="/var/www/html"
 mkdir -p $${WEB_DIR}
 
-SYS_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+COMPUTE_MACHINE_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
 
-TOKEN=$$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" \
 -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 
-COMPUTE_INSTANCE_ID=$$(curl -s \
--H "X-aws-ec2-metadata-token: $${TOKEN}" \
+COMPUTE_INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $${TOKEN}" \
 http://169.254.169.254/latest/meta-data/instance-id)
 
-COMPUTE_MACHINE_UUID="$${SYS_UUID}-$${COMPUTE_INSTANCE_ID}"
-
-echo "This message was generated on instance $${COMPUTE_INSTANCE_ID} with the following UUID $${COMPUTE_MACHINE_UUID}" > $${WEB_DIR}/index.html
+echo "<h1>Launch template ${var.launch_template_name}</h1>" > $${WEB_DIR}/index.html
+echo "<p>Instance type: t3.micro</p>" >> $${WEB_DIR}/index.html
+echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> $${WEB_DIR}/index.html
+echo "<p>This message was generated on instance $${COMPUTE_INSTANCE_ID} with the following UUID $${COMPUTE_MACHINE_UUID}</p>" >> $${WEB_DIR}/index.html
 
 systemctl restart apache2 || systemctl restart httpd
 EOF

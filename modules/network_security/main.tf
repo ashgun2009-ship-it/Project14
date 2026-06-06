@@ -27,7 +27,7 @@ resource "aws_security_group" "public_http" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = var.allowed_ip_range
+    cidr_blocks = ["0.0.0.0/0"] # Повністю відкрито для балансувальника та робота Syndicate
   }
 
   egress {
@@ -43,7 +43,6 @@ resource "aws_security_group" "private_http" {
   vpc_id = var.vpc_id
   tags   = { Name = var.private_http_sg_name }
 
-  # Дозволяємо HTTP-доступ як від групи балансувальника, так і всередині всієї VPC мережі
   ingress {
     from_port       = 80
     to_port         = 80

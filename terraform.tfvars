@@ -17,7 +17,7 @@ ssh_security_group_name          = "cmtr-o3e0v1ec-ssh-sg"
 public_http_security_group_name  = "cmtr-o3e0v1ec-public-http-sg"
 private_http_security_group_name = "cmtr-o3e0v1ec-private-http-sg"
 
-allowed_ip_range = ["18.153.146.156/32", "37.73.6.116/32"]
+allowed_ip_range = ["18.153.146.156/32", "213.109.232.0/32"]
 
 aws_launch_template_name = "cmtr-o3e0v1ec-template"
 aws_asg_name             = "cmtr-o3e0v1ec-asg"
