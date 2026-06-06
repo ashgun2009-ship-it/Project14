@@ -12,12 +12,11 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "tg" {
-  name        = "${var.load_balancer_name}-tg"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "instance"
-
+  name                          = "${var.load_balancer_name}-tg"
+  port                          = 80
+  protocol                      = "HTTP"
+  vpc_id                        = var.vpc_id
+  target_type                   = "instance"
   load_balancing_algorithm_type = "round_robin"
 
   health_check {
@@ -25,11 +24,11 @@ resource "aws_lb_target_group" "tg" {
     path                = "/"
     protocol            = "HTTP"
     port                = "traffic-port"
+    matcher             = "200"
     healthy_threshold   = 2
     unhealthy_threshold = 2
     timeout             = 5
     interval            = 10
-    matcher             = "200"
   }
 }
 
@@ -52,6 +51,7 @@ resource "aws_launch_template" "app" {
   network_interfaces {
     associate_public_ip_address = true
     delete_on_termination       = true
+
     security_groups = [
       var.ssh_sg_id,
       var.private_http_sg_id
@@ -108,14 +108,14 @@ resource "aws_autoscaling_group" "asg" {
   health_check_type         = "ELB"
   health_check_grace_period = 120
 
+  target_group_arns = [
+    aws_lb_target_group.tg.arn
+  ]
+
   launch_template {
     id      = aws_launch_template.app.id
     version = "$Latest"
   }
-
-  target_group_arns = [
-    aws_lb_target_group.tg.arn
-  ]
 
   tag {
     key                 = "Name"
