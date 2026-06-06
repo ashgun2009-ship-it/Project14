@@ -9,19 +9,12 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "tg" {
-  name        = "${var.load_balancer_name}-tg"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "instance"
-
+  name                          = "${var.load_balancer_name}-tg"
+  port                          = 80
+  protocol                      = "HTTP"
+  vpc_id                        = var.vpc_id
+  target_type                   = "instance"
   load_balancing_algorithm_type = "round_robin"
-
-  stickiness {
-    enabled         = false
-    type            = "lb_cookie"
-    cookie_duration = 0
-  }
 
   health_check {
     path                = "/"
@@ -77,19 +70,12 @@ fi
 WEB_DIR="/var/www/html"
 mkdir -p $$WEB_DIR
 
-# 1. Спершу беремо UUID системи, як на скріншоті ТЗ
 SYS_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
-
-# 2. Отримуємо токен метаданих IMDSv2
 TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-
-# 3. Отримуємо ID поточного інстансу за допомогою токена
 COMPUTE_INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $$TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
 
-# Об'єднуємо їх, щоб UUID гарантовано став унікальним для кожного з двох серверів
 COMPUTE_MACHINE_UUID="$${SYS_UUID}-$$COMPUTE_INSTANCE_ID"
 
-# Виводимо повідомлення у суворій відповідності до шаблону платформи
 echo "<h1>Launch template ${var.launch_template_name}</h1>" > $$WEB_DIR/index.html
 echo "<p>Instance type: t3.micro</p>" >> $$WEB_DIR/index.html
 echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> $$WEB_DIR/index.html
@@ -103,12 +89,11 @@ EOF
 }
 
 resource "aws_autoscaling_group" "asg" {
-  name                = var.asg_name
-  vpc_zone_identifier = var.subnet_ids
-  desired_capacity    = 2
-  min_size            = 2
-  max_size            = 2
-
+  name                      = var.asg_name
+  vpc_zone_identifier       = var.subnet_ids
+  desired_capacity          = 2
+  min_size                  = 2
+  max_size                  = 2
   health_check_type         = "ELB"
   health_check_grace_period = 60
 
