@@ -20,15 +20,13 @@ resource "aws_lb_target_group" "tg" {
   load_balancing_algorithm_type = "round_robin"
 
   health_check {
-    enabled             = true
     path                = "/"
     protocol            = "HTTP"
-    port                = "traffic-port"
-    matcher             = "200"
+    port                = "80"
     healthy_threshold   = 2
     unhealthy_threshold = 2
-    timeout             = 5
-    interval            = 10
+    timeout             = 2
+    interval            = 5
   }
 }
 
@@ -49,8 +47,8 @@ resource "aws_launch_template" "app" {
   instance_type = "t3.micro"
 
   network_interfaces {
-    associate_public_ip_address = true
     delete_on_termination       = true
+    associate_public_ip_address = true
 
     security_groups = [
       var.ssh_sg_id,
@@ -75,7 +73,10 @@ elif command -v yum >/dev/null 2>&1; then
   systemctl start httpd
 fi
 
-COMPUTE_MACHINE_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+WEB_DIR="/var/www/html"
+mkdir -p $${WEB_DIR}
+
+SYS_UUID=$$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
 
 TOKEN=$$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
 -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
@@ -84,9 +85,9 @@ COMPUTE_INSTANCE_ID=$$(curl -s \
 -H "X-aws-ec2-metadata-token: $${TOKEN}" \
 http://169.254.169.254/latest/meta-data/instance-id)
 
-cat > /var/www/html/index.html <<HTML
-This message was generated on instance $${COMPUTE_INSTANCE_ID} with the following UUID $${COMPUTE_MACHINE_UUID}
-HTML
+COMPUTE_MACHINE_UUID="$${SYS_UUID}-$${COMPUTE_INSTANCE_ID}"
+
+echo "This message was generated on instance $${COMPUTE_INSTANCE_ID} with the following UUID $${COMPUTE_MACHINE_UUID}" > $${WEB_DIR}/index.html
 
 systemctl restart apache2 || systemctl restart httpd
 EOF
@@ -98,28 +99,38 @@ EOF
 }
 
 resource "aws_autoscaling_group" "asg" {
-  name                = var.asg_name
-  vpc_zone_identifier = var.subnet_ids
-
-  min_size         = 2
-  max_size         = 2
-  desired_capacity = 2
-
+  name                      = var.asg_name
+  vpc_zone_identifier       = var.subnet_ids
+  desired_capacity          = 2
+  min_size                  = 2
+  max_size                  = 2
   health_check_type         = "ELB"
-  health_check_grace_period = 120
-
-  target_group_arns = [
-    aws_lb_target_group.tg.arn
-  ]
+  health_check_grace_period = 60
 
   launch_template {
     id      = aws_launch_template.app.id
     version = "$Latest"
   }
 
-  tag {
-    key                 = "Name"
-    value               = var.asg_name
-    propagate_at_launch = true
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 50
+    }
+
+    triggers = ["tag"]
   }
+
+  lifecycle {
+    ignore_changes = [
+      load_balancers,
+      target_group_arns
+    ]
+  }
+}
+
+resource "aws_autoscaling_attachment" "asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.asg.id
+  lb_target_group_arn    = aws_lb_target_group.tg.arn
 }
