@@ -1,3 +1,8 @@
+locals {
+  tg_suffix = "tg"
+  tg_name   = format("%s-%s", var.load_balancer_name, local.tg_suffix)
+}
+
 resource "aws_lb" "alb" {
   name               = var.load_balancer_name
   internal           = false
@@ -9,7 +14,7 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "tg" {
-  name                          = "${var.load_balancer_name}-tg"
+  name                          = local.tg_name
   port                          = 80
   protocol                      = "HTTP"
   vpc_id                        = var.vpc_id
@@ -49,11 +54,10 @@ resource "aws_launch_template" "app" {
     associate_public_ip_address = true
   }
 
-  user_data = base64encode(<<EOF
+  user_data = base64encode(<<-EOF
 #!/bin/bash
 exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
 
-# Встановлення web-сервера
 if command -v apt-get &> /dev/null; then
   apt-get update -y && apt-get install -y apache2 curl
   systemctl start apache2 && systemctl enable apache2
@@ -63,23 +67,19 @@ elif command -v yum &> /dev/null; then
 fi
 
 WEB_DIR="/var/www/html"
-mkdir -p \$$WEB_DIR
+mkdir -p $WEB_DIR
 
-# 1. ГЕНЕРАЦІЯ УНІКАЛЬНОГО UUID
-# Генеруємо рандомний UUID і монтуємо його замість системного файлу
-NEW_UUID=\$(cat /proc/sys/kernel/random/uuid)
-mount --bind <(echo \$$NEW_UUID) /sys/devices/virtual/dmi/id/product_uuid
+NEW_UUID=$(cat /proc/sys/kernel/random/uuid)
+mount --bind <(echo $NEW_UUID) /sys/devices/virtual/dmi/id/product_uuid
 
-# 2. ПОСЛІДОВНІСТЬ МЕТАДАНИХ ЗА ТЗ
-COMPUTE_MACHINE_UUID=\$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
-TOKEN=\$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-COMPUTE_INSTANCE_ID=\$(curl -H "X-aws-ec2-metadata-token: \$$TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+COMPUTE_MACHINE_UUID=$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
+TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+COMPUTE_INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
 
-# 3. ФОРМУВАННЯ СТОРІНКИ
-echo "<h1>Launch template ${var.launch_template_name}</h1>" > \$$WEB_DIR/index.html
-echo "<p>Instance type: t3.micro</p>" >> \$$WEB_DIR/index.html
-echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> \$$WEB_DIR/index.html
-echo "<p>This message was generated on instance \$$COMPUTE_INSTANCE_ID with the following UUID \$$COMPUTE_MACHINE_UUID</p>" >> \$$WEB_DIR/index.html
+echo "<h1>Launch template ${var.launch_template_name}</h1>" > $WEB_DIR/index.html
+echo "<p>Instance type: t3.micro</p>" >> $WEB_DIR/index.html
+echo "<p>Security groups: ${var.ssh_sg_name} and ${var.private_http_sg_name}</p>" >> $WEB_DIR/index.html
+echo "<p>This message was generated on instance $COMPUTE_INSTANCE_ID with the following UUID $COMPUTE_MACHINE_UUID</p>" >> $WEB_DIR/index.html
 
 systemctl restart apache2 || systemctl restart httpd
 EOF

@@ -1,13 +1,16 @@
 resource "aws_security_group" "ssh" {
-  name        = "cmtr-o3e0v1ec-ssh-sg"
-  description = "Allow SSH inbound traffic"
+  name        = var.ssh_sg_name
+  description = "Allow SSH access"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_ip_range # Тут створюється 2 правила з нашого tfvars
+  dynamic "ingress" {
+    for_each = var.allowed_ip_ranges
+    content {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
   }
 
   egress {
@@ -17,19 +20,24 @@ resource "aws_security_group" "ssh" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "cmtr-o3e0v1ec-ssh-sg" }
+  tags = {
+    Name = var.ssh_sg_name
+  }
 }
 
 resource "aws_security_group" "public_http" {
-  name        = "cmtr-o3e0v1ec-public-http-sg"
-  description = "Allow HTTP inbound traffic from allowed IPs"
+  name        = var.public_http_sg_name
+  description = "Allow public HTTP access"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_ip_range # Має бути СТРОГО тільки ця змінна (дасть 2 правила)
+  dynamic "ingress" {
+    for_each = var.allowed_ip_ranges
+    content {
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
   }
 
   egress {
@@ -39,19 +47,21 @@ resource "aws_security_group" "public_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "cmtr-o3e0v1ec-public-http-sg" }
+  tags = {
+    Name = var.public_http_sg_name
+  }
 }
 
 resource "aws_security_group" "private_http" {
-  name        = "cmtr-o3e0v1ec-private-http-sg"
-  description = "Allow HTTP traffic only from Public HTTP SG"
+  name        = var.private_http_sg_name
+  description = "Allow HTTP from public ALB SG"
   vpc_id      = var.vpc_id
 
   ingress {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.public_http.id] # Доступ тільки для іншої SG
+    security_groups = [aws_security_group.public_http.id]
   }
 
   egress {
@@ -61,5 +71,7 @@ resource "aws_security_group" "private_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "cmtr-o3e0v1ec-private-http-sg" }
+  tags = {
+    Name = var.private_http_sg_name
+  }
 }
