@@ -1,8 +1,3 @@
-locals {
-  tg_suffix = "tg"
-  tg_name   = format("%s-%s", var.load_balancer_name, local.tg_suffix)
-}
-
 resource "aws_lb" "alb" {
   name               = var.load_balancer_name
   internal           = false
@@ -14,7 +9,7 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "tg" {
-  name                          = local.tg_name
+  name                          = var.load_balancer_name
   port                          = 80
   protocol                      = "HTTP"
   vpc_id                        = var.vpc_id
@@ -56,8 +51,6 @@ resource "aws_launch_template" "app" {
 
   user_data = base64encode(<<-EOF
 #!/bin/bash
-exec > >(tee /var/log/user-data.log|logger -t user-data -s2>/dev/tty) 2>&1
-
 if command -v apt-get &> /dev/null; then
   apt-get update -y && apt-get install -y apache2 curl
   systemctl start apache2 && systemctl enable apache2
@@ -73,8 +66,8 @@ NEW_UUID=$(cat /proc/sys/kernel/random/uuid)
 mount --bind <(echo $NEW_UUID) /sys/devices/virtual/dmi/id/product_uuid
 
 COMPUTE_MACHINE_UUID=$(cat /sys/devices/virtual/dmi/id/product_uuid | tr '[:upper:]' '[:lower:]')
-TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-COMPUTE_INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+TOKEN=$(curl -s -X PUT "http://169.254.169" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+COMPUTE_INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169)
 
 echo "<h1>Launch template ${var.launch_template_name}</h1>" > $WEB_DIR/index.html
 echo "<p>Instance type: t3.micro</p>" >> $WEB_DIR/index.html
@@ -100,14 +93,6 @@ resource "aws_autoscaling_group" "asg" {
   launch_template {
     id      = aws_launch_template.app.id
     version = aws_launch_template.app.latest_version
-  }
-
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 50
-    }
-    triggers = ["tag"]
   }
 
   lifecycle {

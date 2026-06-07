@@ -1,49 +1,49 @@
 variable "vpc_id" {
   type        = string
-  description = "The ID of the VPC where application resources will be deployed"
+  description = "VPC ID"
 }
 
 variable "subnet_ids" {
   type        = list(string)
-  description = "List of public subnet IDs for the Application Load Balancer and Auto Scaling Group"
+  description = "Subnet IDs"
 }
 
 variable "ssh_sg_id" {
   type        = string
-  description = "The ID of the SSH Security Group"
+  description = "SSH SG ID"
 }
 
 variable "ssh_sg_name" {
   type        = string
-  description = "The full name of the SSH Security Group used for verification on the web page"
+  description = "SSH SG Name"
 }
 
 variable "public_http_sg_id" {
   type        = string
-  description = "The ID of the Public HTTP Security Group applied to the ALB"
+  description = "Public HTTP SG ID"
 }
 
 variable "private_http_sg_id" {
   type        = string
-  description = "The ID of the Private HTTP Security Group applied to the instances"
+  description = "Private HTTP SG ID"
 }
 
 variable "private_http_sg_name" {
   type        = string
-  description = "The full name of the Private HTTP Security Group used for verification on the web page"
+  description = "Private HTTP SG Name"
 }
 
 variable "launch_template_name" {
   type        = string
-  description = "The dynamically generated name for the AWS Launch Template"
+  description = "Launch Template Name"
 }
 
 variable "asg_name" {
   type        = string
-  description = "The dynamically generated name for the Auto Scaling Group"
+  description = "ASG Name"
 }
 
 variable "load_balancer_name" {
   type        = string
-  description = "The dynamically generated name for the Application Load Balancer"
+  description = "ALB Name"
 }

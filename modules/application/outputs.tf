@@ -1,1 +1,4 @@
-output "alb_dns_name" { value = aws_lb.alb.dns_name }
+output "alb_dns_name" {
+  value       = aws_lb.alb.dns_name
+  description = "The DNS name of the Load Balancer"
+}

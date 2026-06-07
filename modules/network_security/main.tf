@@ -4,7 +4,7 @@ resource "aws_security_group" "ssh" {
   vpc_id      = var.vpc_id
 
   dynamic "ingress" {
-    for_each = var.allowed_ip_ranges
+    for_each = var.allowed_ip_range
     content {
       from_port   = 22
       to_port     = 22
@@ -20,9 +20,7 @@ resource "aws_security_group" "ssh" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = var.ssh_sg_name
-  }
+  tags = { Name = var.ssh_sg_name }
 }
 
 resource "aws_security_group" "public_http" {
@@ -31,7 +29,7 @@ resource "aws_security_group" "public_http" {
   vpc_id      = var.vpc_id
 
   dynamic "ingress" {
-    for_each = var.allowed_ip_ranges
+    for_each = var.allowed_ip_range
     content {
       from_port   = 80
       to_port     = 80
@@ -47,9 +45,7 @@ resource "aws_security_group" "public_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = var.public_http_sg_name
-  }
+  tags = { Name = var.public_http_sg_name }
 }
 
 resource "aws_security_group" "private_http" {
@@ -71,7 +67,5 @@ resource "aws_security_group" "private_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = var.private_http_sg_name
-  }
+  tags = { Name = var.private_http_sg_name }
 }

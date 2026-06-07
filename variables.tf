@@ -1,16 +1,16 @@
-variable "aws_region" {
+variable "prefix" {
   type        = string
-  description = "AWS region for resource deployment"
+  description = "Resource name prefix provided by the platform"
 }
 
 variable "vpc_name" {
   type        = string
-  description = "Name for the VPC"
+  description = "The exact name of the VPC"
 }
 
 variable "vpc_cidr" {
   type        = string
-  description = "CIDR block for the VPC"
+  description = "The CIDR block for the VPC"
 }
 
 variable "subnet1_name" {
@@ -58,47 +58,47 @@ variable "az3" {
   description = "Availability zone for subnet C"
 }
 
-variable "internet_gateway" {
+variable "igw_name" {
   type        = string
   description = "Name for the Internet Gateway"
 }
 
-variable "routing_table" {
+variable "rt_name" {
   type        = string
   description = "Name for the Route Table"
 }
 
-variable "ssh_security_group_name" {
+variable "ssh_sg_name" {
   type        = string
-  description = "Name for the SSH security group"
+  description = "Name for the SSH Security Group"
 }
 
-variable "public_http_security_group_name" {
+variable "public_http_sg_name" {
   type        = string
-  description = "Name for the Public HTTP security group"
+  description = "Name for the Public HTTP Security Group"
 }
 
-variable "private_http_security_group_name" {
+variable "private_http_sg_name" {
   type        = string
-  description = "Name for the Private HTTP security group"
+  description = "Name for the Private HTTP Security Group"
 }
 
 variable "allowed_ip_range" {
   type        = list(string)
-  description = "List of allowed IP ranges for security groups"
+  description = "List of allowed IP addresses for security groups"
 }
 
-variable "aws_launch_template_name" {
+variable "launch_template_name" {
   type        = string
-  description = "Name for the Launch Template"
+  description = "Name for the EC2 Launch Template"
 }
 
-variable "aws_asg_name" {
+variable "asg_name" {
   type        = string
   description = "Name for the Auto Scaling Group"
 }
 
-variable "load_balancer" {
+variable "load_balancer_name" {
   type        = string
   description = "Name for the Application Load Balancer"
 }

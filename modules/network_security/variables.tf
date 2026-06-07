@@ -1,24 +1,24 @@
 variable "vpc_id" {
   type        = string
-  description = "The VPC ID"
+  description = "VPC ID"
 }
 
-variable "allowed_ip_ranges" {
+variable "allowed_ip_range" {
   type        = list(string)
-  description = "List of IPs allowed to connect"
+  description = "Allowed IPs"
 }
 
 variable "ssh_sg_name" {
   type        = string
-  description = "Full name for the SSH security group"
+  description = "SSH SG Name"
 }
 
 variable "public_http_sg_name" {
   type        = string
-  description = "Full name for the public HTTP security group"
+  description = "Public HTTP SG Name"
 }
 
 variable "private_http_sg_name" {
   type        = string
-  description = "Full name for the private HTTP security group"
+  description = "Private HTTP SG Name"
 }
